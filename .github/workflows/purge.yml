@@ -1,0 +1,54 @@
+name: Purge Old Transcripts
+
+on:
+  schedule:
+    - cron: "0 0 * * 0" # Runs every Sunday at midnight UTC
+  workflow_dispatch: # Also allows manual trigger from GitHub Actions tab
+
+jobs:
+  purge:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Need full history to check file commit dates
+
+      - name: Delete transcripts older than 90 days
+        run: |
+          CUTOFF=$(date -d '90 days ago' +%s)
+          DELETED=0
+          SKIPPED=0
+
+          for file in transcripts/*.html; do
+            [ -f "$file" ] || continue
+
+            # Get the date this file was last committed
+            COMMIT_DATE=$(git log -1 --format="%ct" -- "$file")
+
+            if [ -z "$COMMIT_DATE" ]; then
+              echo "Skipping $file (no commit date found)"
+              ((SKIPPED++))
+              continue
+            fi
+
+            if [ "$COMMIT_DATE" -lt "$CUTOFF" ]; then
+              echo "Deleting $file (committed $(date -d @$COMMIT_DATE))"
+              git rm "$file"
+              ((DELETED++))
+            else
+              ((SKIPPED++))
+            fi
+          done
+
+          echo "Deleted: $DELETED | Skipped: $SKIPPED"
+
+          if [ "$DELETED" -gt 0 ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git commit -m "Purge transcripts older than 90 days ($DELETED files removed)"
+            git push
+          else
+            echo "Nothing to purge."
+          fi
