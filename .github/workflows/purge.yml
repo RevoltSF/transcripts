@@ -33,7 +33,7 @@
             echo "[$FOLDER] Deleted: $DELETED | Skipped: $SKIPPED"
           }
 
-          purge_folder "transcripts"
+          purge_folder "mod-logs"
           purge_folder "catering-logs"
 
           if git diff --cached --quiet; then
