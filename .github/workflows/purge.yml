@@ -2,7 +2,7 @@ name: Purge Old Transcripts
 
 on:
   schedule:
-    - cron: "0 0 1,15 * *" # Runs every Sunday at midnight UTC
+    - cron: "0 0 1,15 * *" # Runs on the 1st and 15th of every month at midnight UTC
   workflow_dispatch: # Also allows manual trigger from GitHub Actions tab
 
 jobs:
@@ -17,28 +17,34 @@ jobs:
 
       - name: Delete transcripts older than 90 days
         run: |
+          set +e
           CUTOFF=$(date -d '90 days ago' +%s)
           DELETED=0
           SKIPPED=0
 
+          # Check if transcripts folder exists and has html files
+          if [ ! -d "transcripts" ] || [ -z "$(ls transcripts/*.html 2>/dev/null)" ]; then
+            echo "No transcripts found, nothing to purge."
+            exit 0
+          fi
+
           for file in transcripts/*.html; do
             [ -f "$file" ] || continue
 
-            # Get the date this file was last committed
             COMMIT_DATE=$(git log -1 --format="%ct" -- "$file")
 
             if [ -z "$COMMIT_DATE" ]; then
               echo "Skipping $file (no commit date found)"
-              ((SKIPPED++))
+              SKIPPED=$((SKIPPED + 1))
               continue
             fi
 
             if [ "$COMMIT_DATE" -lt "$CUTOFF" ]; then
               echo "Deleting $file (committed $(date -d @$COMMIT_DATE))"
               git rm "$file"
-              ((DELETED++))
+              DELETED=$((DELETED + 1))
             else
-              ((SKIPPED++))
+              SKIPPED=$((SKIPPED + 1))
             fi
           done
 
