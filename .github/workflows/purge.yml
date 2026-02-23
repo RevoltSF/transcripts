@@ -1,60 +1,46 @@
-name: Purge Old Transcripts
-
-on:
-  schedule:
-    - cron: "0 0 1,15 * *" # Runs on the 1st and 15th of every month at midnight UTC
-  workflow_dispatch: # Also allows manual trigger from GitHub Actions tab
-
-jobs:
-  purge:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0 # Need full history to check file commit dates
-
-      - name: Delete transcripts older than 90 days
+- name: Delete transcripts older than 90 days
         run: |
           set +e
           CUTOFF=$(date -d '90 days ago' +%s)
-          DELETED=0
-          SKIPPED=0
 
-          # Check if transcripts folder exists and has html files
-          if [ ! -d "transcripts" ] || [ -z "$(ls transcripts/*.html 2>/dev/null)" ]; then
-            echo "No transcripts found, nothing to purge."
-            exit 0
-          fi
+          purge_folder() {
+            FOLDER="$1"
+            DELETED=0
+            SKIPPED=0
 
-          for file in transcripts/*.html; do
-            [ -f "$file" ] || continue
-
-            COMMIT_DATE=$(git log -1 --format="%ct" -- "$file")
-
-            if [ -z "$COMMIT_DATE" ]; then
-              echo "Skipping $file (no commit date found)"
-              SKIPPED=$((SKIPPED + 1))
-              continue
+            if [ ! -d "$FOLDER" ] || [ -z "$(ls $FOLDER/*.html 2>/dev/null)" ]; then
+              echo "No files found in $FOLDER, skipping."
+              return
             fi
 
-            if [ "$COMMIT_DATE" -lt "$CUTOFF" ]; then
-              echo "Deleting $file (committed $(date -d @$COMMIT_DATE))"
-              git rm "$file"
-              DELETED=$((DELETED + 1))
-            else
-              SKIPPED=$((SKIPPED + 1))
-            fi
-          done
+            for file in $FOLDER/*.html; do
+              [ -f "$file" ] || continue
+              COMMIT_DATE=$(git log -1 --format="%ct" -- "$file")
+              if [ -z "$COMMIT_DATE" ]; then
+                echo "Skipping $file (no commit date found)"
+                SKIPPED=$((SKIPPED + 1))
+                continue
+              fi
+              if [ "$COMMIT_DATE" -lt "$CUTOFF" ]; then
+                echo "Deleting $file (committed $(date -d @$COMMIT_DATE))"
+                git rm "$file"
+                DELETED=$((DELETED + 1))
+              else
+                SKIPPED=$((SKIPPED + 1))
+              fi
+            done
 
-          echo "Deleted: $DELETED | Skipped: $SKIPPED"
+            echo "[$FOLDER] Deleted: $DELETED | Skipped: $SKIPPED"
+          }
 
-          if [ "$DELETED" -gt 0 ]; then
+          purge_folder "transcripts"
+          purge_folder "catering-logs"
+
+          if git diff --cached --quiet; then
+            echo "Nothing to purge."
+          else
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
-            git commit -m "Purge transcripts older than 90 days ($DELETED files removed)"
+            git commit -m "Purge transcripts older than 90 days"
             git push
-          else
-            echo "Nothing to purge."
           fi
