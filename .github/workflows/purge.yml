@@ -2,7 +2,7 @@ name: Purge Old Transcripts
 
 on:
   schedule:
-    - cron: "0 0 * * 0" # Runs every Sunday at midnight UTC
+    - cron: "0 0 1,15 * *" # Runs every Sunday at midnight UTC
   workflow_dispatch: # Also allows manual trigger from GitHub Actions tab
 
 jobs:
