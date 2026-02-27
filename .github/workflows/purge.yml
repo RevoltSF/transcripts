@@ -1,7 +1,19 @@
-- name: Delete old files
+name: Purge Old Files
+on:
+  schedule:
+    - cron: "0 0 1,15 * *"
+  workflow_dispatch:
+jobs:
+  purge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Delete old files
         run: |
           set +e
-
           purge_folder() {
             FOLDER="$1"
             DAYS="$2"
@@ -30,11 +42,9 @@
             done
             echo "[$FOLDER] Deleted: $DELETED | Skipped: $SKIPPED"
           }
-
           purge_folder "mod-logs" 90
           purge_folder "catering-logs" 90
           purge_folder "applications" 30
-
           if git diff --cached --quiet; then
             echo "Nothing to purge."
           else
