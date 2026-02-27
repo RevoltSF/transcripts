@@ -44,7 +44,6 @@ jobs:
           }
           purge_folder "mod-logs" 90
           purge_folder "catering-logs" 90
-          purge_folder "applications" 30
           if git diff --cached --quiet; then
             echo "Nothing to purge."
           else
