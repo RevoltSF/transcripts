@@ -1,18 +1,17 @@
-- name: Delete transcripts older than 90 days
+- name: Delete old files
         run: |
           set +e
-          CUTOFF=$(date -d '90 days ago' +%s)
 
           purge_folder() {
             FOLDER="$1"
+            DAYS="$2"
+            CUTOFF=$(date -d "${DAYS} days ago" +%s)
             DELETED=0
             SKIPPED=0
-
             if [ ! -d "$FOLDER" ] || [ -z "$(ls $FOLDER/*.html 2>/dev/null)" ]; then
               echo "No files found in $FOLDER, skipping."
               return
             fi
-
             for file in $FOLDER/*.html; do
               [ -f "$file" ] || continue
               COMMIT_DATE=$(git log -1 --format="%ct" -- "$file")
@@ -29,19 +28,18 @@
                 SKIPPED=$((SKIPPED + 1))
               fi
             done
-
             echo "[$FOLDER] Deleted: $DELETED | Skipped: $SKIPPED"
           }
 
-          purge_folder "mod-logs"
-          purge_folder "catering-logs"
-          purge_folder "applications"
+          purge_folder "mod-logs" 90
+          purge_folder "catering-logs" 90
+          purge_folder "applications" 30
 
           if git diff --cached --quiet; then
             echo "Nothing to purge."
           else
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
-            git commit -m "Purge transcripts older than 90 days"
+            git commit -m "Purge old files"
             git push
           fi
