@@ -35,6 +35,7 @@
 
           purge_folder "mod-logs"
           purge_folder "catering-logs"
+          purge_folder "applications"
 
           if git diff --cached --quiet; then
             echo "Nothing to purge."
